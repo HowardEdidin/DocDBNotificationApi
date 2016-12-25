@@ -7,45 +7,59 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Swashbuckle.Swagger.Annotations;
 using TRex.Metadata;
-using static System.Globalization.CultureInfo;
-
 
 namespace DocDBNotificationApi.Controllers
 {
     public class PatientController : ApiController
     {
         /// <summary>
-        ///     Query for new Patient Documents
+        ///     Gets the new or modified patient documents.
         /// </summary>
-        /// <param name="unixTimeStamp"></param>
-        /// <returns>IList</returns>
-        [Metadata("QueryForNewDocuments",
-            "Query for new Documents where the Timestamp is greater than or equal to the DateTime value in the query parameters."
-            )]
-        [SwaggerOperation("QueryForNewDocuments")]
-        [SwaggerResponse(HttpStatusCode.OK, type: typeof (Task<IList<Document>>))]
-        [SwaggerResponse(HttpStatusCode.BadRequest, "The syntax of the SQL Statement is incoreect")]
-        [SwaggerResponse(HttpStatusCode.NotFound, "No Documents were found")]
-        [SwaggerResponse(HttpStatusCode.InternalServerError, "Internal Server Operation Error")]
-        // ReSharper disable once ConsiderUsingAsyncSuffix
-        public IList<Document> QueryForNewPatientDocuments(
-            [Metadata("UnixTimeStamp", "The DateTime value used to search from")] double unixTimeStamp)
+        /// <param name="resourceType">Type of the resource.</param>
+        /// <returns></returns>
+        [Metadata("GetNewOrModifiedPatientDocuments",
+             "Query for new or Modifed FHIR Documents By Resource Type"
+         )]
+        [SwaggerResponse(HttpStatusCode.OK, type: typeof(Task<dynamic>))]
+        [SwaggerResponse(HttpStatusCode.NotFound, "No New or Modifed Documents ")]
+        [SwaggerOperation("GetNewOrModifiedPatientDocuments")]
+        public async Task<dynamic> GetNewOrModifiedPatientDocuments(
+            [Metadata("Resource Type")] string resourceType)
         {
-            var context = new DocumentDbContext();
-            var filterQuery = string.Format(InvariantCulture, "SELECT * FROM Patient p WHERE p._ts >=  {0}",
-                unixTimeStamp);
-            var options = new FeedOptions {MaxItemCount = -1};
-
-
             var collectionLink = UriFactory.CreateDocumentCollectionUri(DocumentDbContext.DatabaseId,
                 DocumentDbContext.CollectionId);
+            var context = new DocumentDbContext();
+            var docs = new List<dynamic>();
+            var partitionKeyRanges = new List<PartitionKeyRange>();
+            FeedResponse<PartitionKeyRange> pkRangesResponse;
 
-            var response =
-                context.Client.CreateDocumentQuery<Document>(collectionLink, filterQuery, options).AsEnumerable();
+            do
+            {
+                pkRangesResponse = await context.Client.ReadPartitionKeyRangeFeedAsync(collectionLink);
+                partitionKeyRanges.AddRange(pkRangesResponse);
+            } while (pkRangesResponse.ResponseContinuation != null);
 
+            foreach (var pkRange in partitionKeyRanges)
+            {
+                var changeFeedOptions = new ChangeFeedOptions
+                {
+                    StartFromBeginning = true,
+                    RequestContinuation = null,
+                    MaxItemCount = -1,
+                    PartitionKeyRangeId = pkRange.Id
+                };
 
+                var query = context.Client.CreateDocumentChangeFeedQuery(collectionLink, changeFeedOptions);
 
-            return response.ToList();
+                do
+                {
+                    var response = await query.ExecuteNextAsync<dynamic>();
+                    if (response.Count > 0)
+                        docs.AddRange(
+                            response.AsEnumerable().Where(d => d.ResourceType == resourceType).Cast<Document>());
+                } while (query.HasMoreResults);
+            }
+            return docs;
         }
     }
 }
