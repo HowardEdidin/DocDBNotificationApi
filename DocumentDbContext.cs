@@ -12,39 +12,18 @@ namespace DocDBNotificationApi
         private DocumentClient _client;
 
         /// <summary>
-        /// 
+        ///  EndPoint
         /// </summary>
         public static string EndPoint = ConfigurationManager.AppSettings["EndPoint"];
 
         /// <summary>
-        /// 
+        /// AuthKey
         /// </summary>
         public static string AuthKey = ConfigurationManager.AppSettings["AuthKey"];
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public static string KeyType = ConfigurationManager.AppSettings["KeyType"];
+       
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public static string TokenVersion = ConfigurationManager.AppSettings["TokenVersion"];
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public static string DatabaseId = ConfigurationManager.AppSettings["DatabaseId"];
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public static string CollectionId = ConfigurationManager.AppSettings["CollectionId"];
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public static string ProcedureId = ConfigurationManager.AppSettings["ProcedureId"];
+      
 
 
         /// <summary>
@@ -60,15 +39,13 @@ namespace DocDBNotificationApi
                 {
                     ConnectionMode = ConnectionMode.Direct,
                     ConnectionProtocol = Protocol.Tcp
+                   
                 });
 
                 return _client;
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public static string CollectionLink { get; set; }
+     
     }
 }
